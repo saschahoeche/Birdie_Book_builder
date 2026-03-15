@@ -318,9 +318,17 @@ function setupToolButtons() {
                         const mapContainer = state.map.getContainer();
                         if (mapContainer) {
                             mapContainer.style.pointerEvents = 'none';
+                            console.log('Map container pointer-events set to none');
+                        }
+                        // Also disable on the map pane
+                        const mapPane = state.map.getPane('mapPane');
+                        if (mapPane) {
+                            mapPane.style.pointerEvents = 'none';
                         }
                     }
-                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto, all map interactions disabled');
+                    console.log('Tool selected:', state.currentTool);
+                    console.log('Canvas pointer-events:', state.drawCanvas.style.pointerEvents);
+                    console.log('Canvas computed style:', window.getComputedStyle(state.drawCanvas).pointerEvents);
                 }
             } else {
                 console.error('Canvas not available when selecting tool', {
