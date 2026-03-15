@@ -276,11 +276,19 @@ function setupToolButtons() {
                     state.drawCanvas.style.pointerEvents = 'none';
                     state.overlayCanvas.style.pointerEvents = 'none';
                     state.drawCanvas.style.cursor = 'grab';
+                    // Enable map dragging for pan tool
+                    if (state.map) {
+                        state.map.dragging.enable();
+                    }
                 } else {
                     state.drawCanvas.style.pointerEvents = 'auto';
                     state.overlayCanvas.style.pointerEvents = 'none'; // Overlay should never capture events
                     state.drawCanvas.style.cursor = 'crosshair';
-                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto');
+                    // Disable map dragging when using tools
+                    if (state.map) {
+                        state.map.dragging.disable();
+                    }
+                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto, map dragging disabled');
                 }
             } else {
                 console.error('Canvas not available when selecting tool', {
