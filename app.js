@@ -59,11 +59,16 @@ let state = {
         measurements: true,
         annotations: true
     },
+    // Fill tool state
+    currentPolygon: null, // Current polygon being drawn
+    filledAreas: [], // Array of filled ground type areas
+    selectedGroundType: 'fairway', // Currently selected ground type
     // Undo/Redo history
     history: {
         drawings: [], // Array of canvas states (image data)
         measurements: [],
         annotations: [],
+        filledAreas: [],
         currentIndex: -1
     }
 };
@@ -209,10 +214,10 @@ function setupEventListeners() {
             document.querySelectorAll('.ground-type-item').forEach(i => i.classList.remove('selected'));
             // Add active class to clicked item
             item.classList.add('selected');
-            // Set brush color to ground type color
+            // Set selected ground type
+            state.selectedGroundType = item.dataset.type;
             const color = item.dataset.color;
             state.brushColor = color;
-            document.getElementById('brushColor').value = color;
         });
     });
 
@@ -235,6 +240,7 @@ function setupEventListeners() {
     state.drawCanvas.addEventListener('mousemove', handleMouseMove);
     state.drawCanvas.addEventListener('mouseup', handleMouseUp);
     state.drawCanvas.addEventListener('mouseleave', handleMouseUp);
+    state.drawCanvas.addEventListener('dblclick', handleDoubleClick);
 
     // Print modal
     document.getElementById('closePrintModal').addEventListener('click', closePrintModal);
@@ -265,28 +271,22 @@ function setupToolButtons() {
             }
 
             // Show/hide tool options
-            document.getElementById('brushOptions').style.display = 
-                state.currentTool === 'brush' ? 'block' : 'none';
+            document.getElementById('fillOptions').style.display = 
+                state.currentTool === 'fill' ? 'block' : 'none';
             document.getElementById('stampOptions').style.display = 
                 state.currentTool === 'stamp' ? 'block' : 'none';
             document.getElementById('measureOptions').style.display = 
                 state.currentTool === 'measure' ? 'block' : 'none';
 
-            // Set default ground type selection when brush tool is selected
-            if (state.currentTool === 'brush') {
+            // Set default ground type selection when fill tool is selected
+            if (state.currentTool === 'fill') {
                 const fairwayItem = document.querySelector('.ground-type-item[data-type="fairway"]');
                 if (fairwayItem && !document.querySelector('.ground-type-item.selected')) {
                     fairwayItem.classList.add('selected');
+                    state.selectedGroundType = 'fairway';
                 }
             }
 
-            // Set default ground type selection when brush tool is selected
-            if (state.currentTool === 'brush') {
-                const fairwayItem = document.querySelector('.ground-type-item[data-type="fairway"]');
-                if (fairwayItem && !document.querySelector('.ground-type-item.selected')) {
-                    fairwayItem.classList.add('selected');
-                }
-            }
 
             // Setup stamp selection
             if (state.currentTool === 'stamp') {
@@ -328,11 +328,16 @@ function handleMouseDown(e) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    state.isDrawing = true;
-    state.lastX = x;
-    state.lastY = y;
-
-    if (state.currentTool === 'measure') {
+    if (state.currentTool === 'fill') {
+        // Start or continue polygon drawing
+        if (!state.currentPolygon) {
+            state.currentPolygon = { points: [{ x, y }], groundType: state.selectedGroundType };
+            saveStateToHistory();
+        } else {
+            state.currentPolygon.points.push({ x, y });
+        }
+        redraw();
+    } else if (state.currentTool === 'measure') {
         if (!state.currentMeasurement) {
             state.currentMeasurement = { start: { x, y }, end: null };
         } else {
@@ -361,8 +366,17 @@ function handleMouseDown(e) {
             state.annotations.push({ x, y, text: note });
             redraw();
         }
-    } else if (state.currentTool === 'brush') {
-        saveStateToHistory(); // Save before starting to draw
+    }
+}
+
+function handleDoubleClick(e) {
+    if (state.currentTool === 'fill' && state.currentPolygon && state.currentPolygon.points.length >= 3) {
+        // Close polygon and fill
+        fillPolygon(state.currentPolygon);
+        state.filledAreas.push(state.currentPolygon);
+        state.currentPolygon = null;
+        redraw();
+        saveStateToHistory();
     }
 }
 
@@ -373,25 +387,23 @@ function handleMouseDown(e) {
  * @function handleMouseMove
  */
 function handleMouseMove(e) {
-    if (!state.isDrawing) return;
-
     const rect = state.drawCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (state.currentTool === 'brush') {
-        state.drawContext.strokeStyle = state.brushColor;
-        state.drawContext.lineWidth = state.brushThickness;
-        state.drawContext.lineCap = 'round';
-        state.drawContext.lineJoin = 'round';
-
-        state.drawContext.beginPath();
-        state.drawContext.moveTo(state.lastX, state.lastY);
-        state.drawContext.lineTo(x, y);
-        state.drawContext.stroke();
-
-        state.lastX = x;
-        state.lastY = y;
+    // Update preview for fill tool
+    if (state.currentTool === 'fill' && state.currentPolygon) {
+        redraw();
+        // Draw preview line to current mouse position
+        state.overlayContext.strokeStyle = '#FF0000';
+        state.overlayContext.lineWidth = 2;
+        state.overlayContext.setLineDash([5, 5]);
+        state.overlayContext.beginPath();
+        const lastPoint = state.currentPolygon.points[state.currentPolygon.points.length - 1];
+        state.overlayContext.moveTo(lastPoint.x, lastPoint.y);
+        state.overlayContext.lineTo(x, y);
+        state.overlayContext.stroke();
+        state.overlayContext.setLineDash([]);
     }
 }
 
@@ -484,13 +496,181 @@ function updateMeasurementsList() {
 }
 
 /**
+ * Fills a polygon with the selected ground type and appropriate texture.
+ * @param {Object} polygon - Polygon object with points and groundType
+ * @function fillPolygon
+ */
+function fillPolygon(polygon) {
+    if (polygon.points.length < 3) return;
+
+    const ctx = state.drawContext;
+    const groundType = polygon.groundType;
+    
+    // Get color for ground type
+    const colors = {
+        fairway: '#2d5016',
+        green: '#4a7c2a',
+        rough: '#5a6b3a',
+        bunker: '#d4c5a9',
+        water: '#4a90e2',
+        path: '#8b7355'
+    };
+    
+    const color = colors[groundType] || colors.fairway;
+    
+    // Draw filled polygon
+    ctx.beginPath();
+    ctx.moveTo(polygon.points[0].x, polygon.points[0].y);
+    for (let i = 1; i < polygon.points.length; i++) {
+        ctx.lineTo(polygon.points[i].x, polygon.points[i].y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    
+    // Add texture based on ground type
+    addTexture(ctx, polygon, groundType);
+    
+    // Draw outline
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+/**
+ * Adds texture pattern to filled area based on ground type.
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Object} polygon - Polygon object
+ * @param {string} groundType - Type of ground
+ * @function addTexture
+ */
+function addTexture(ctx, polygon, groundType) {
+    ctx.save();
+    
+    // Create clipping path
+    ctx.beginPath();
+    ctx.moveTo(polygon.points[0].x, polygon.points[0].y);
+    for (let i = 1; i < polygon.points.length; i++) {
+        ctx.lineTo(polygon.points[i].x, polygon.points[i].y);
+    }
+    ctx.closePath();
+    ctx.clip();
+    
+    if (groundType === 'fairway') {
+        // Horizontal stripes for fairway
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
+        const minY = Math.min(...polygon.points.map(p => p.y));
+        const maxY = Math.max(...polygon.points.map(p => p.y));
+        for (let y = minY; y <= maxY; y += 8) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(state.drawCanvas.width, y);
+            ctx.stroke();
+        }
+    } else if (groundType === 'green') {
+        // Smooth texture - subtle dots
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        const minX = Math.min(...polygon.points.map(p => p.x));
+        const maxX = Math.max(...polygon.points.map(p => p.x));
+        const minY = Math.min(...polygon.points.map(p => p.y));
+        const maxY = Math.max(...polygon.points.map(p => p.y));
+        for (let x = minX; x <= maxX; x += 6) {
+            for (let y = minY; y <= maxY; y += 6) {
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    } else if (groundType === 'rough') {
+        // Random texture for rough
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.lineWidth = 1;
+        const minX = Math.min(...polygon.points.map(p => p.x));
+        const maxX = Math.max(...polygon.points.map(p => p.x));
+        const minY = Math.min(...polygon.points.map(p => p.y));
+        const maxY = Math.max(...polygon.points.map(p => p.y));
+        for (let i = 0; i < 50; i++) {
+            const x1 = minX + Math.random() * (maxX - minX);
+            const y1 = minY + Math.random() * (maxY - minY);
+            const x2 = x1 + (Math.random() - 0.5) * 10;
+            const y2 = y1 + (Math.random() - 0.5) * 10;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+    } else if (groundType === 'bunker') {
+        // Sand texture - dots
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        const minX = Math.min(...polygon.points.map(p => p.x));
+        const maxX = Math.max(...polygon.points.map(p => p.x));
+        const minY = Math.min(...polygon.points.map(p => p.y));
+        const maxY = Math.max(...polygon.points.map(p => p.y));
+        for (let i = 0; i < 100; i++) {
+            const x = minX + Math.random() * (maxX - minX);
+            const y = minY + Math.random() * (maxY - minY);
+            ctx.beginPath();
+            ctx.arc(x, y, Math.random() * 2 + 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else if (groundType === 'water') {
+        // Water texture - wavy lines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        const minY = Math.min(...polygon.points.map(p => p.y));
+        const maxY = Math.max(...polygon.points.map(p => p.y));
+        for (let y = minY; y <= maxY; y += 4) {
+            ctx.beginPath();
+            const minX = Math.min(...polygon.points.map(p => p.x));
+            const maxX = Math.max(...polygon.points.map(p => p.x));
+            ctx.moveTo(minX, y);
+            for (let x = minX; x <= maxX; x += 5) {
+                ctx.lineTo(x, y + Math.sin(x / 10) * 2);
+            }
+            ctx.stroke();
+        }
+    }
+    
+    ctx.restore();
+}
+
+/**
  * Redraws all overlay elements (measurements and annotations) on the overlay canvas.
  * Respects layer visibility settings from state.layers.
  * @function redraw
  */
 function redraw() {
+    // Redraw filled areas on main canvas
+    if (state.layers.drawings) {
+        state.drawContext.clearRect(0, 0, state.drawCanvas.width, state.drawCanvas.height);
+        state.filledAreas.forEach(polygon => {
+            fillPolygon(polygon);
+        });
+    }
+
     // Clear overlay canvas
     state.overlayContext.clearRect(0, 0, state.overlayCanvas.width, state.overlayCanvas.height);
+
+    // Draw current polygon being drawn
+    if (state.currentPolygon && state.currentPolygon.points.length > 0) {
+        state.overlayContext.strokeStyle = '#FF0000';
+        state.overlayContext.lineWidth = 2;
+        state.overlayContext.beginPath();
+        state.overlayContext.moveTo(state.currentPolygon.points[0].x, state.currentPolygon.points[0].y);
+        for (let i = 1; i < state.currentPolygon.points.length; i++) {
+            state.overlayContext.lineTo(state.currentPolygon.points[i].x, state.currentPolygon.points[i].y);
+        }
+        state.overlayContext.stroke();
+        
+        // Draw points
+        state.overlayContext.fillStyle = '#FF0000';
+        state.currentPolygon.points.forEach(point => {
+            state.overlayContext.beginPath();
+            state.overlayContext.arc(point.x, point.y, 4, 0, Math.PI * 2);
+            state.overlayContext.fill();
+        });
+    }
 
     // Draw measurements
     if (state.layers.measurements) {
@@ -616,6 +796,8 @@ function createBlankCanvas() {
     state.overlayContext.clearRect(0, 0, state.overlayCanvas.width, state.overlayCanvas.height);
     state.measurements = [];
     state.annotations = [];
+    state.filledAreas = [];
+    state.currentPolygon = null;
     updateMeasurementsList();
 }
 
@@ -646,6 +828,7 @@ async function loadProject() {
             // Restore state
             if (data.measurements) state.measurements = data.measurements;
             if (data.annotations) state.annotations = data.annotations;
+            if (data.filledAreas) state.filledAreas = data.filledAreas;
             if (data.brushColor) state.brushColor = data.brushColor;
             if (data.brushThickness) state.brushThickness = data.brushThickness;
             
@@ -678,6 +861,7 @@ async function saveProject() {
         mapZoom: state.map.getZoom(),
         measurements: state.measurements,
         annotations: state.annotations,
+        filledAreas: state.filledAreas,
         brushColor: state.brushColor,
         brushThickness: state.brushThickness,
         canvasData: state.drawCanvas.toDataURL()
@@ -738,12 +922,14 @@ function saveStateToHistory() {
         state.history.drawings = state.history.drawings.slice(0, state.history.currentIndex + 1);
         state.history.measurements = state.history.measurements.slice(0, state.history.currentIndex + 1);
         state.history.annotations = state.history.annotations.slice(0, state.history.currentIndex + 1);
+        state.history.filledAreas = state.history.filledAreas.slice(0, state.history.currentIndex + 1);
     }
 
     // Save current state
     state.history.drawings.push(state.drawCanvas.toDataURL());
     state.history.measurements.push(JSON.parse(JSON.stringify(state.measurements)));
     state.history.annotations.push(JSON.parse(JSON.stringify(state.annotations)));
+    state.history.filledAreas.push(JSON.parse(JSON.stringify(state.filledAreas)));
     
     // Limit history to 50 states to prevent memory issues
     const maxHistory = 50;
@@ -774,9 +960,12 @@ function restoreStateFromHistory(index) {
     };
     img.src = state.history.drawings[index];
 
-    // Restore measurements and annotations
+    // Restore measurements, annotations, and filled areas
     state.measurements = JSON.parse(JSON.stringify(state.history.measurements[index]));
     state.annotations = JSON.parse(JSON.stringify(state.history.annotations[index]));
+    if (state.history.filledAreas[index]) {
+        state.filledAreas = JSON.parse(JSON.stringify(state.history.filledAreas[index]));
+    }
 
     state.history.currentIndex = index;
     updateMeasurementsList();
@@ -829,7 +1018,11 @@ function updateUndoRedoButtons() {
  */
 async function exportToPDF() {
     const paperSize = document.getElementById('paperSize').value;
-    const orientation = document.getElementById('paperOrientation').value;
+    let orientation = document.getElementById('paperOrientation').value;
+
+    // Force portrait orientation for Birdie Books (tee bottom, green top)
+    // Portrait is standard for golf course layouts
+    orientation = 'portrait';
 
     // Get paper dimensions in mm
     const sizes = {
@@ -840,10 +1033,6 @@ async function exportToPDF() {
 
     let width = sizes[paperSize].width;
     let height = sizes[paperSize].height;
-
-    if (orientation === 'landscape') {
-        [width, height] = [height, width];
-    }
 
     // Use html2canvas to capture the canvas area
     const container = document.getElementById('mapContainer');

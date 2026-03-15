@@ -42,8 +42,8 @@
                         <button id="panTool" class="tool-btn active" data-tool="pan">
                             <span class="icon">✋</span> Pan
                         </button>
-                        <button id="brushTool" class="tool-btn" data-tool="brush">
-                            <span class="icon">🖌️</span> Brush
+                        <button id="fillTool" class="tool-btn" data-tool="fill">
+                            <span class="icon">🖌️</span> Fill Area
                         </button>
                         <button id="stampTool" class="tool-btn" data-tool="stamp">
                             <span class="icon">📍</span> Stamp
@@ -69,8 +69,9 @@
                     </div>
                 </div>
 
-                <div class="sidebar-section" id="brushOptions">
+                <div class="sidebar-section" id="fillOptions" style="display: none;">
                     <h3>Ground Types</h3>
+                    <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Click to outline area, then fill</p>
                     <div class="ground-type-grid">
                         <div class="ground-type-item" data-type="fairway" data-color="#2d5016" title="Fairway">
                             <div class="ground-type-preview" style="background-color: #2d5016;"></div>
@@ -97,11 +98,12 @@
                             <span>Path</span>
                         </div>
                     </div>
-                    <h3 style="margin-top: 15px;">Brush Settings</h3>
-                    <label>Color: <input type="color" id="brushColor" value="#2d5016"></label>
-                    <label>Thickness: <input type="range" id="brushThickness" min="1" max="50" value="5">
-                        <span id="thicknessValue">5</span>px
-                    </label>
+                    <div style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
+                        <p style="font-size: 11px; margin: 0;"><strong>Instructions:</strong></p>
+                        <p style="font-size: 11px; margin: 5px 0 0 0;">1. Select ground type</p>
+                        <p style="font-size: 11px; margin: 0;">2. Click to add points</p>
+                        <p style="font-size: 11px; margin: 0;">3. Double-click to close & fill</p>
+                    </div>
                 </div>
 
                 <div class="sidebar-section" id="stampOptions" style="display: none;">
@@ -179,11 +181,11 @@
                             </select>
                         </label>
                         <label>Orientation:
-                            <select id="paperOrientation">
-                                <option value="portrait">Portrait</option>
-                                <option value="landscape">Landscape</option>
+                            <select id="paperOrientation" disabled>
+                                <option value="portrait" selected>Portrait (Tee Bottom, Green Top)</option>
                             </select>
                         </label>
+                        <p style="font-size: 11px; color: #666; margin-top: 5px;">Birdie Books always print in portrait orientation</p>
                     </div>
                     <div id="printPreview" class="print-preview"></div>
                 </div>
