@@ -234,12 +234,32 @@ function handleCanvasClick(x, y, tool) {
     if (tool === 'fill') {
         // Start or continue polygon drawing
         if (!state.currentPolygon) {
+            // Start new polygon
             state.currentPolygon = { points: [{ x, y }], groundType: state.selectedGroundType };
             saveStateToHistory();
+            redraw();
         } else {
-            state.currentPolygon.points.push({ x, y });
+            // Check if clicking near the first point (within 10 pixels)
+            const firstPoint = state.currentPolygon.points[0];
+            const distance = Math.sqrt(
+                Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2)
+            );
+            
+            // If close to first point and have at least 3 points, close and fill
+            if (distance < 10 && state.currentPolygon.points.length >= 3) {
+                // Close polygon and fill
+                fillPolygon(state.currentPolygon);
+                state.filledAreas.push(state.currentPolygon);
+                state.currentPolygon = null;
+                redraw();
+                saveStateToHistory();
+                console.log('Polygon closed and filled');
+            } else {
+                // Add new point
+                state.currentPolygon.points.push({ x, y });
+                redraw();
+            }
         }
-        redraw();
     } else if (tool === 'measure') {
         if (!state.currentMeasurement) {
             state.currentMeasurement = { start: { x, y }, end: null };
@@ -578,12 +598,32 @@ function handleCanvasClick(x, y, tool) {
     if (tool === 'fill') {
         // Start or continue polygon drawing
         if (!state.currentPolygon) {
+            // Start new polygon
             state.currentPolygon = { points: [{ x, y }], groundType: state.selectedGroundType };
             saveStateToHistory();
+            redraw();
         } else {
-            state.currentPolygon.points.push({ x, y });
+            // Check if clicking near the first point (within 10 pixels)
+            const firstPoint = state.currentPolygon.points[0];
+            const distance = Math.sqrt(
+                Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2)
+            );
+            
+            // If close to first point and have at least 3 points, close and fill
+            if (distance < 10 && state.currentPolygon.points.length >= 3) {
+                // Close polygon and fill
+                fillPolygon(state.currentPolygon);
+                state.filledAreas.push(state.currentPolygon);
+                state.currentPolygon = null;
+                redraw();
+                saveStateToHistory();
+                console.log('Polygon closed and filled');
+            } else {
+                // Add new point
+                state.currentPolygon.points.push({ x, y });
+                redraw();
+            }
         }
-        redraw();
     } else if (tool === 'measure') {
         if (!state.currentMeasurement) {
             state.currentMeasurement = { start: { x, y }, end: null };
