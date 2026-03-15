@@ -183,21 +183,97 @@ function initializeMap() {
     // Initially set to auto for pan tool
     state.map.getContainer().style.pointerEvents = 'auto';
     
-    // Add click handler to map to stop propagation when tools are active
+    // Handle map clicks - convert to canvas coordinates when tools are active
     state.map.on('click', (e) => {
-        if (state.currentTool !== 'pan') {
+        if (state.currentTool !== 'pan' && state.drawCanvas) {
             e.originalEvent.stopPropagation();
             e.originalEvent.preventDefault();
+            
+            // Convert Leaflet lat/lng to canvas coordinates
+            const containerPoint = state.map.latLngToContainerPoint(e.latlng);
+            const rect = state.drawCanvas.getBoundingClientRect();
+            const x = containerPoint.x;
+            const y = containerPoint.y;
+            
+            console.log('Map click converted to canvas:', x, y, state.currentTool);
+            
+            // Create synthetic mouse event for canvas
+            handleCanvasClick(x, y, state.currentTool);
         }
     });
     
-    // Also prevent mousedown on map when tools are active
+    // Also handle mousedown on map container
     state.map.getContainer().addEventListener('mousedown', (e) => {
-        if (state.currentTool !== 'pan') {
+        if (state.currentTool !== 'pan' && state.drawCanvas) {
             e.stopPropagation();
             e.preventDefault();
+            
+            // Get click position relative to map container
+            const rect = state.map.getContainer().getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            console.log('Map container mousedown:', x, y, state.currentTool);
+            
+            // Convert to canvas coordinates
+            handleCanvasClick(x, y, state.currentTool);
         }
     }, true);
+}
+
+/**
+ * Handles canvas clicks - unified handler for both direct canvas clicks and map clicks
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {string} tool - Current tool
+ * @function handleCanvasClick
+ */
+function handleCanvasClick(x, y, tool) {
+    console.log('handleCanvasClick called:', tool, x, y);
+    
+    if (tool === 'fill') {
+        // Start or continue polygon drawing
+        if (!state.currentPolygon) {
+            state.currentPolygon = { points: [{ x, y }], groundType: state.selectedGroundType };
+            saveStateToHistory();
+        } else {
+            state.currentPolygon.points.push({ x, y });
+        }
+        redraw();
+    } else if (tool === 'measure') {
+        if (!state.currentMeasurement) {
+            state.currentMeasurement = { start: { x, y }, end: null };
+        } else {
+            state.currentMeasurement.end = { x, y };
+            const distance = calculateDistance(
+                state.currentMeasurement.start,
+                state.currentMeasurement.end
+            );
+            state.measurements.push({
+                ...state.currentMeasurement,
+                distance,
+                unit: state.measureUnit
+            });
+            state.currentMeasurement = null;
+            updateMeasurementsList();
+            redraw();
+            saveStateToHistory();
+        }
+    } else if (tool === 'stamp') {
+        if (!state.selectedStamp) {
+            alert('Please select a stamp first from the sidebar');
+            return;
+        }
+        saveStateToHistory();
+        drawStamp(x, y, state.selectedStamp);
+    } else if (tool === 'annotate') {
+        const note = prompt('Enter annotation:');
+        if (note) {
+            saveStateToHistory();
+            state.annotations.push({ x, y, text: note });
+            redraw();
+        }
+    }
 }
 
 /**
@@ -461,7 +537,21 @@ function handleMouseDown(e) {
     
     console.log('Mouse down on canvas - PROCESSING:', state.currentTool, x, y);
 
-    if (state.currentTool === 'fill') {
+    // Use unified handler
+    handleCanvasClick(x, y, state.currentTool);
+}
+
+/**
+ * Handles canvas clicks - unified handler for both direct canvas clicks and map clicks
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {string} tool - Current tool
+ * @function handleCanvasClick
+ */
+function handleCanvasClick(x, y, tool) {
+    console.log('handleCanvasClick called:', tool, x, y);
+    
+    if (tool === 'fill') {
         // Start or continue polygon drawing
         if (!state.currentPolygon) {
             state.currentPolygon = { points: [{ x, y }], groundType: state.selectedGroundType };
@@ -470,7 +560,7 @@ function handleMouseDown(e) {
             state.currentPolygon.points.push({ x, y });
         }
         redraw();
-    } else if (state.currentTool === 'measure') {
+    } else if (tool === 'measure') {
         if (!state.currentMeasurement) {
             state.currentMeasurement = { start: { x, y }, end: null };
         } else {
@@ -489,14 +579,14 @@ function handleMouseDown(e) {
             redraw();
             saveStateToHistory(); // Save after measurement complete
         }
-    } else if (state.currentTool === 'stamp') {
+    } else if (tool === 'stamp') {
         if (!state.selectedStamp) {
             alert('Please select a stamp first from the sidebar');
             return;
         }
         saveStateToHistory(); // Save before stamp
         drawStamp(x, y, state.selectedStamp);
-    } else if (state.currentTool === 'annotate') {
+    } else if (tool === 'annotate') {
         const note = prompt('Enter annotation:');
         if (note) {
             saveStateToHistory(); // Save before annotation
