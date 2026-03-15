@@ -410,6 +410,7 @@ function setupToolButtons() {
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
+            e.stopImmediatePropagation();
             
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
