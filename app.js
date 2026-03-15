@@ -101,11 +101,31 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeCanvas() {
     state.drawCanvas = document.getElementById('drawCanvas');
     state.overlayCanvas = document.getElementById('overlayCanvas');
+    
+    if (!state.drawCanvas || !state.overlayCanvas) {
+        console.error('Canvas elements not found!');
+        return;
+    }
+    
     state.drawContext = state.drawCanvas.getContext('2d');
     state.overlayContext = state.overlayCanvas.getContext('2d');
 
     // Initialize canvas pointer-events (starts as none for pan tool)
     state.drawCanvas.style.pointerEvents = 'none';
+    state.overlayCanvas.style.pointerEvents = 'none';
+    
+    // Ensure canvas is on top with proper z-index
+    state.drawCanvas.style.zIndex = '1000';
+    state.overlayCanvas.style.zIndex = '1001';
+    state.drawCanvas.style.position = 'absolute';
+    state.overlayCanvas.style.position = 'absolute';
+    
+    console.log('Canvas initialized:', {
+        drawCanvas: !!state.drawCanvas,
+        overlayCanvas: !!state.overlayCanvas,
+        drawCanvasStyle: state.drawCanvas.style.pointerEvents,
+        drawCanvasZIndex: state.drawCanvas.style.zIndex
+    });
 
     // Set canvas size
     function resizeCanvas() {
