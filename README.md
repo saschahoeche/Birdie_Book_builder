@@ -117,6 +117,7 @@ Comprehensive documentation is available in the `DOCS/` folder:
 - **[Developer Guide](DOCS/DEVELOPER.md)** - Setup, development workflow, and guidelines
 - **[User Manual](DOCS/USER_MANUAL.md)** - Complete user guide with step-by-step instructions
 - **[Contributing Guide](DOCS/CONTRIBUTING.md)** - How to contribute to the project
+- **[Releases Guide](DOCS/RELEASES.md)** - GitHub Releases workflow and automation
 - **[Changelog](DOCS/CHANGELOG.md)** - Version history and release notes
 
 ## Development
