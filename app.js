@@ -270,8 +270,10 @@ function setupToolButtons() {
             if (state.drawCanvas) {
                 if (state.currentTool === 'pan') {
                     state.drawCanvas.style.pointerEvents = 'none';
+                    state.drawCanvas.style.cursor = 'grab';
                 } else {
                     state.drawCanvas.style.pointerEvents = 'auto';
+                    state.drawCanvas.style.cursor = 'crosshair';
                 }
             }
 
