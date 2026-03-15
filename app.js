@@ -361,7 +361,11 @@ function handleMouseDown(e) {
             redraw();
             saveStateToHistory(); // Save after measurement complete
         }
-    } else if (state.currentTool === 'stamp' && state.selectedStamp) {
+    } else if (state.currentTool === 'stamp') {
+        if (!state.selectedStamp) {
+            alert('Please select a stamp first from the sidebar');
+            return;
+        }
         saveStateToHistory(); // Save before stamp
         drawStamp(x, y, state.selectedStamp);
     } else if (state.currentTool === 'annotate') {
