@@ -18,7 +18,10 @@
     "course-design",
     "electron"
   ],
-  "author": "",
+  "author": {
+    "name": "saschahoeche",
+    "email": "sascha.hoeche@gmx.com"
+  },
   "license": "MIT",
   "build": {
     "appId": "com.birdiebook.builder",
@@ -63,7 +66,8 @@
         "deb"
       ],
       "icon": "assets/icon.png",
-      "category": "Sports"
+      "category": "Sports",
+      "maintainer": "sascha.hoeche@gmx.com"
     },
     "nsis": {
       "oneClick": false,
