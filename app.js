@@ -397,11 +397,22 @@ function setupEventListeners() {
  * @function setupToolButtons
  */
 function setupToolButtons() {
-    document.querySelectorAll('.tool-btn').forEach(btn => {
+    console.log('Setting up tool buttons...');
+    const toolButtons = document.querySelectorAll('.tool-btn');
+    console.log('Found tool buttons:', toolButtons.length);
+    
+    toolButtons.forEach(btn => {
+        console.log('Setting up button:', btn.dataset.tool, btn);
         btn.addEventListener('click', (e) => {
+            console.log('Tool button clicked:', btn.dataset.tool, e);
+            e.preventDefault();
+            e.stopPropagation();
+            
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             state.currentTool = btn.dataset.tool;
+            
+            console.log('Tool changed to:', state.currentTool);
 
             // Update canvas pointer-events based on tool
             // Only capture events when a drawing tool is active (not pan)
