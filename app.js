@@ -158,6 +158,10 @@ function initializeMap() {
     state.map.on('moveend', () => {
         updateCanvasSize();
     });
+
+    // Prevent map from capturing events when tools are active
+    // We'll handle this in tool selection, but also add a general handler
+    state.map.getContainer().style.pointerEvents = 'auto';
 }
 
 /**
@@ -356,9 +360,10 @@ function handleMouseDown(e) {
         return;
     }
     
-    // Prevent map interaction
+    // Prevent map interaction - stop all event propagation
     e.preventDefault();
     e.stopPropagation();
+    e.stopImmediatePropagation();
     
     if (!state.drawCanvas) {
         console.error('drawCanvas not available in handleMouseDown');
@@ -369,7 +374,7 @@ function handleMouseDown(e) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    console.log('Mouse down on canvas:', state.currentTool, x, y);
+    console.log('Mouse down on canvas:', state.currentTool, x, y, 'Event type:', e.type);
 
     if (state.currentTool === 'fill') {
         // Start or continue polygon drawing
