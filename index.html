@@ -70,8 +70,35 @@
                 </div>
 
                 <div class="sidebar-section" id="brushOptions">
-                    <h3>Brush Settings</h3>
-                    <label>Color: <input type="color" id="brushColor" value="#4CAF50"></label>
+                    <h3>Ground Types</h3>
+                    <div class="ground-type-grid">
+                        <div class="ground-type-item" data-type="fairway" data-color="#2d5016" title="Fairway">
+                            <div class="ground-type-preview" style="background-color: #2d5016;"></div>
+                            <span>Fairway</span>
+                        </div>
+                        <div class="ground-type-item" data-type="green" data-color="#4a7c2a" title="Green">
+                            <div class="ground-type-preview" style="background-color: #4a7c2a;"></div>
+                            <span>Green</span>
+                        </div>
+                        <div class="ground-type-item" data-type="rough" data-color="#5a6b3a" title="Rough">
+                            <div class="ground-type-preview" style="background-color: #5a6b3a;"></div>
+                            <span>Rough</span>
+                        </div>
+                        <div class="ground-type-item" data-type="bunker" data-color="#d4c5a9" title="Bunker">
+                            <div class="ground-type-preview" style="background-color: #d4c5a9;"></div>
+                            <span>Bunker</span>
+                        </div>
+                        <div class="ground-type-item" data-type="water" data-color="#4a90e2" title="Water">
+                            <div class="ground-type-preview" style="background-color: #4a90e2;"></div>
+                            <span>Water</span>
+                        </div>
+                        <div class="ground-type-item" data-type="path" data-color="#8b7355" title="Path">
+                            <div class="ground-type-preview" style="background-color: #8b7355;"></div>
+                            <span>Path</span>
+                        </div>
+                    </div>
+                    <h3 style="margin-top: 15px;">Brush Settings</h3>
+                    <label>Color: <input type="color" id="brushColor" value="#2d5016"></label>
                     <label>Thickness: <input type="range" id="brushThickness" min="1" max="50" value="5">
                         <span id="thicknessValue">5</span>px
                     </label>

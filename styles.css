@@ -203,6 +203,45 @@ body {
     border-color: #2980b9;
 }
 
+.ground-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.ground-type-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.ground-type-item:hover {
+    background: #e9ecef;
+    border-color: #3498db;
+}
+
+.ground-type-item.selected {
+    background: #e3f2fd;
+    border-color: #3498db;
+    font-weight: 600;
+}
+
+.ground-type-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    flex-shrink: 0;
+}
+
 .layer-item {
     display: flex;
     align-items: center;

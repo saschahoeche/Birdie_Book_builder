@@ -47,7 +47,7 @@ let state = {
     isDrawing: false,
     lastX: 0,
     lastY: 0,
-    brushColor: '#4CAF50',
+    brushColor: '#2d5016', // Default to fairway color
     brushThickness: 5,
     measurements: [],
     annotations: [],
@@ -194,6 +194,20 @@ function setupEventListeners() {
         document.getElementById('thicknessValue').textContent = e.target.value;
     });
 
+    // Ground type selection
+    document.querySelectorAll('.ground-type-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            // Remove active class from all items
+            document.querySelectorAll('.ground-type-item').forEach(i => i.classList.remove('selected'));
+            // Add active class to clicked item
+            item.classList.add('selected');
+            // Set brush color to ground type color
+            const color = item.dataset.color;
+            state.brushColor = color;
+            document.getElementById('brushColor').value = color;
+        });
+    });
+
     // Measurement unit
     document.getElementById('measureUnit').addEventListener('change', (e) => {
         state.measureUnit = e.target.value;
@@ -249,6 +263,14 @@ function setupToolButtons() {
                 state.currentTool === 'stamp' ? 'block' : 'none';
             document.getElementById('measureOptions').style.display = 
                 state.currentTool === 'measure' ? 'block' : 'none';
+
+            // Set default ground type selection when brush tool is selected
+            if (state.currentTool === 'brush') {
+                const fairwayItem = document.querySelector('.ground-type-item[data-type="fairway"]');
+                if (fairwayItem && !document.querySelector('.ground-type-item.selected')) {
+                    fairwayItem.classList.add('selected');
+                }
+            }
 
             // Setup stamp selection
             if (state.currentTool === 'stamp') {
@@ -394,9 +416,8 @@ function drawStamp(x, y, stampType) {
 }
 
 /**
- * Calculates the distance between two points.
- * Converts pixel distance to real-world units (yards or meters).
- * Note: Uses approximate conversion - proper implementation would use map scale.
+ * Calculates the distance between two points on the map.
+ * Converts pixel distance to real-world units using proper map scale calculation.
  * @param {Object} point1 - First point with x and y coordinates
  * @param {number} point1.x - X coordinate
  * @param {number} point1.y - Y coordinate
@@ -407,15 +428,27 @@ function drawStamp(x, y, stampType) {
  * @function calculateDistance
  */
 function calculateDistance(point1, point2) {
-    // Simple pixel distance - in real app, would convert to real-world units
+    if (!state.map) return '0';
+    
+    // Get map center for latitude calculation
+    const center = state.map.getCenter();
+    const lat = center.lat;
+    const zoom = state.map.getZoom();
+    
+    // Calculate pixel distance
     const dx = point2.x - point1.x;
     const dy = point2.y - point1.y;
     const pixels = Math.sqrt(dx * dx + dy * dy);
     
-    // Rough conversion (this would need proper map scale calculation)
-    const metersPerPixel = 0.5; // Approximate
+    // Calculate meters per pixel based on zoom level and latitude
+    // Formula: metersPerPixel = (156543.03392 * cos(lat)) / (2^zoom)
+    // This is the standard Web Mercator projection calculation
+    const metersPerPixel = (156543.03392 * Math.cos(lat * Math.PI / 180)) / Math.pow(2, zoom);
+    
+    // Convert pixels to meters
     const meters = pixels * metersPerPixel;
     
+    // Convert to requested unit
     if (state.measureUnit === 'yards') {
         return (meters * 1.09361).toFixed(1);
     }
