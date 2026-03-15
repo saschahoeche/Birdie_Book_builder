@@ -238,12 +238,16 @@ function setupEventListeners() {
         });
     });
 
-    // Drawing canvas events
-    state.drawCanvas.addEventListener('mousedown', handleMouseDown);
-    state.drawCanvas.addEventListener('mousemove', handleMouseMove);
-    state.drawCanvas.addEventListener('mouseup', handleMouseUp);
-    state.drawCanvas.addEventListener('mouseleave', handleMouseUp);
-    state.drawCanvas.addEventListener('dblclick', handleDoubleClick);
+    // Drawing canvas events - only attach if canvas exists
+    if (state.drawCanvas) {
+        state.drawCanvas.addEventListener('mousedown', handleMouseDown);
+        state.drawCanvas.addEventListener('mousemove', handleMouseMove);
+        state.drawCanvas.addEventListener('mouseup', handleMouseUp);
+        state.drawCanvas.addEventListener('mouseleave', handleMouseUp);
+        state.drawCanvas.addEventListener('dblclick', handleDoubleClick);
+    } else {
+        console.error('drawCanvas not found when setting up event listeners');
+    }
 
     // Print modal
     document.getElementById('closePrintModal').addEventListener('click', closePrintModal);
@@ -274,7 +278,10 @@ function setupToolButtons() {
                 } else {
                     state.drawCanvas.style.pointerEvents = 'auto';
                     state.drawCanvas.style.cursor = 'crosshair';
+                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto');
                 }
+            } else {
+                console.error('drawCanvas not available when selecting tool');
             }
 
             // Show/hide tool options
