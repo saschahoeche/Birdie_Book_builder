@@ -78,6 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeMap();
     setupEventListeners();
     setupToolButtons();
+    
+    // Set default fairway selection after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        const fairwayItem = document.querySelector('.ground-type-item[data-type="fairway"]');
+        if (fairwayItem) {
+            fairwayItem.classList.add('selected');
+        }
+    }, 100);
 });
 
 /**
@@ -263,6 +271,14 @@ function setupToolButtons() {
                 state.currentTool === 'stamp' ? 'block' : 'none';
             document.getElementById('measureOptions').style.display = 
                 state.currentTool === 'measure' ? 'block' : 'none';
+
+            // Set default ground type selection when brush tool is selected
+            if (state.currentTool === 'brush') {
+                const fairwayItem = document.querySelector('.ground-type-item[data-type="fairway"]');
+                if (fairwayItem && !document.querySelector('.ground-type-item.selected')) {
+                    fairwayItem.classList.add('selected');
+                }
+            }
 
             // Set default ground type selection when brush tool is selected
             if (state.currentTool === 'brush') {
