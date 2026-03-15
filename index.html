@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birdie Book Builder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Birdie Book Builder</h1>
+            <div class="header-actions">
+                <button id="newBtn" class="btn btn-secondary">New</button>
+                <button id="loadBtn" class="btn btn-secondary">Load</button>
+                <button id="saveBtn" class="btn btn-primary">Save</button>
+                <button id="printBtn" class="btn btn-primary">Print</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Map Import</h3>
+                    <div class="input-group">
+                        <input type="text" id="courseName" placeholder="Course name or coordinates" class="input">
+                        <button id="searchMapBtn" class="btn btn-small">Search</button>
+                    </div>
+                    <div class="input-group">
+                        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                        <button id="uploadImageBtn" class="btn btn-small btn-full">Upload Image</button>
+                    </div>
+                    <button id="blankCanvasBtn" class="btn btn-small btn-full">Blank Canvas</button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Drawing Tools</h3>
+                    <div class="tool-group">
+                        <button id="brushTool" class="tool-btn active" data-tool="brush">
+                            <span class="icon">🖌️</span> Brush
+                        </button>
+                        <button id="stampTool" class="tool-btn" data-tool="stamp">
+                            <span class="icon">📍</span> Stamp
+                        </button>
+                        <button id="measureTool" class="tool-btn" data-tool="measure">
+                            <span class="icon">📏</span> Measure
+                        </button>
+                        <button id="annotateTool" class="tool-btn" data-tool="annotate">
+                            <span class="icon">📝</span> Annotate
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section" id="brushOptions">
+                    <h3>Brush Settings</h3>
+                    <label>Color: <input type="color" id="brushColor" value="#4CAF50"></label>
+                    <label>Thickness: <input type="range" id="brushThickness" min="1" max="50" value="5">
+                        <span id="thicknessValue">5</span>px
+                    </label>
+                </div>
+
+                <div class="sidebar-section" id="stampOptions" style="display: none;">
+                    <h3>Stamps</h3>
+                    <div class="stamp-grid">
+                        <div class="stamp-item" data-stamp="tree">🌲</div>
+                        <div class="stamp-item" data-stamp="bush">🌿</div>
+                        <div class="stamp-item" data-stamp="hazard">⚠️</div>
+                        <div class="stamp-item" data-stamp="bunker">🏖️</div>
+                        <div class="stamp-item" data-stamp="water">💧</div>
+                        <div class="stamp-item" data-stamp="flag">🚩</div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section" id="measureOptions" style="display: none;">
+                    <h3>Measurement</h3>
+                    <label>
+                        Unit: 
+                        <select id="measureUnit">
+                            <option value="yards">Yards</option>
+                            <option value="meters">Meters</option>
+                        </select>
+                    </label>
+                    <div id="measurementsList"></div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Layers</h3>
+                    <div id="layersList">
+                        <div class="layer-item">
+                            <input type="checkbox" checked id="layer-map"> Map
+                        </div>
+                        <div class="layer-item">
+                            <input type="checkbox" checked id="layer-drawings"> Drawings
+                        </div>
+                        <div class="layer-item">
+                            <input type="checkbox" checked id="layer-measurements"> Measurements
+                        </div>
+                        <div class="layer-item">
+                            <input type="checkbox" checked id="layer-annotations"> Annotations
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Canvas Area -->
+            <main class="canvas-area">
+                <div id="mapContainer" class="map-container">
+                    <div id="map" class="map"></div>
+                    <canvas id="drawCanvas" class="draw-canvas"></canvas>
+                    <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+                </div>
+                <div class="canvas-controls">
+                    <button id="zoomInBtn" class="btn btn-small">Zoom In</button>
+                    <button id="zoomOutBtn" class="btn btn-small">Zoom Out</button>
+                    <button id="resetViewBtn" class="btn btn-small">Reset View</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- Print Preview Modal -->
+        <div id="printModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Print Preview</h2>
+                    <button class="close-btn" id="closePrintModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="print-options">
+                        <label>Paper Size:
+                            <select id="paperSize">
+                                <option value="A4">A4</option>
+                                <option value="A5">A5</option>
+                                <option value="A6">A6</option>
+                            </select>
+                        </label>
+                        <label>Orientation:
+                            <select id="paperOrientation">
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="printPreview" class="print-preview"></div>
+                </div>
+                <div class="modal-footer">
+                    <button id="exportPdfBtn" class="btn btn-primary">Export PDF</button>
+                    <button id="cancelPrintBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

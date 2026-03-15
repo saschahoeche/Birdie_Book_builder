@@ -1,0 +1,28 @@
+{
+  "name": "birdie-book-builder",
+  "version": "1.0.0",
+  "description": "A desktop application for golfers to design and print personalized Birdie Books for golf courses",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "golf",
+    "birdie-book",
+    "course-design",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "jspdf": "^2.5.1",
+    "html2canvas": "^1.4.1"
+  }
+}

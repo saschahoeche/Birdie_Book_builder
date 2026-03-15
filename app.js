@@ -1,0 +1,692 @@
+/**
+ * @fileoverview Renderer process for Birdie Book Builder application.
+ * Handles UI interactions, canvas drawing, map operations, and tool management.
+ * @module app
+ */
+
+const { ipcRenderer } = require('electron');
+
+/**
+ * Application state object containing all current application data.
+ * @typedef {Object} AppState
+ * @property {string} currentTool - Currently selected tool ('brush', 'stamp', 'measure', 'annotate')
+ * @property {string|null} selectedStamp - Currently selected stamp type
+ * @property {L.Map|null} map - Leaflet map instance
+ * @property {HTMLCanvasElement|null} drawCanvas - Canvas element for drawings
+ * @property {HTMLCanvasElement|null} overlayCanvas - Canvas element for overlays (measurements, annotations)
+ * @property {CanvasRenderingContext2D|null} drawContext - Drawing context for drawCanvas
+ * @property {CanvasRenderingContext2D|null} overlayContext - Drawing context for overlayCanvas
+ * @property {boolean} isDrawing - Whether user is currently drawing
+ * @property {number} lastX - Last X coordinate for drawing
+ * @property {number} lastY - Last Y coordinate for drawing
+ * @property {string} brushColor - Current brush color (hex format)
+ * @property {number} brushThickness - Current brush thickness in pixels
+ * @property {Array<Object>} measurements - Array of measurement objects
+ * @property {Array<Object>} annotations - Array of annotation objects
+ * @property {Object|null} currentMeasurement - Current measurement in progress
+ * @property {string} measureUnit - Measurement unit ('yards' or 'meters')
+ * @property {Object} layers - Layer visibility settings
+ * @property {boolean} layers.map - Map layer visibility
+ * @property {boolean} layers.drawings - Drawings layer visibility
+ * @property {boolean} layers.measurements - Measurements layer visibility
+ * @property {boolean} layers.annotations - Annotations layer visibility
+ */
+
+/**
+ * Application state object.
+ * @type {AppState}
+ */
+let state = {
+    currentTool: 'brush',
+    selectedStamp: null,
+    map: null,
+    drawCanvas: null,
+    overlayCanvas: null,
+    drawContext: null,
+    overlayContext: null,
+    isDrawing: false,
+    lastX: 0,
+    lastY: 0,
+    brushColor: '#4CAF50',
+    brushThickness: 5,
+    measurements: [],
+    annotations: [],
+    currentMeasurement: null,
+    measureUnit: 'yards',
+    layers: {
+        map: true,
+        drawings: true,
+        measurements: true,
+        annotations: true
+    }
+};
+
+/**
+ * Initializes the application when DOM is loaded.
+ * Sets up canvas, map, event listeners, and tool buttons.
+ * @event DOMContentLoaded
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    initializeCanvas();
+    initializeMap();
+    setupEventListeners();
+    setupToolButtons();
+});
+
+/**
+ * Initializes the drawing and overlay canvases.
+ * Sets up canvas contexts and handles window resize events.
+ * @function initializeCanvas
+ */
+function initializeCanvas() {
+    state.drawCanvas = document.getElementById('drawCanvas');
+    state.overlayCanvas = document.getElementById('overlayCanvas');
+    state.drawContext = state.drawCanvas.getContext('2d');
+    state.overlayContext = state.overlayCanvas.getContext('2d');
+
+    // Set canvas size
+    function resizeCanvas() {
+        const container = document.getElementById('mapContainer');
+        state.drawCanvas.width = container.offsetWidth;
+        state.drawCanvas.height = container.offsetHeight;
+        state.overlayCanvas.width = container.offsetWidth;
+        state.overlayCanvas.height = container.offsetHeight;
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+}
+
+/**
+ * Initializes the Leaflet map with OpenStreetMap tiles.
+ * Sets up default view, zoom controls, and map event handlers.
+ * @function initializeMap
+ */
+function initializeMap() {
+    // Initialize Leaflet map
+    state.map = L.map('map', {
+        center: [40.7128, -74.0060], // Default to NYC
+        zoom: 15,
+        zoomControl: false
+    });
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(state.map);
+
+    // Add zoom controls
+    L.control.zoom({
+        position: 'topright'
+    }).addTo(state.map);
+
+    // Update canvas size when map moves
+    state.map.on('moveend', () => {
+        updateCanvasSize();
+    });
+}
+
+/**
+ * Updates canvas dimensions to match container size and redraws overlays.
+ * Called when map view changes or window is resized.
+ * @function updateCanvasSize
+ */
+function updateCanvasSize() {
+    const container = document.getElementById('mapContainer');
+    state.drawCanvas.width = container.offsetWidth;
+    state.drawCanvas.height = container.offsetHeight;
+    state.overlayCanvas.width = container.offsetWidth;
+    state.overlayCanvas.height = container.offsetHeight;
+    redraw();
+}
+
+/**
+ * Sets up all event listeners for UI interactions.
+ * Handles file operations, map controls, tool settings, and canvas events.
+ * @function setupEventListeners
+ */
+function setupEventListeners() {
+    // File operations
+    document.getElementById('newBtn').addEventListener('click', newProject);
+    document.getElementById('loadBtn').addEventListener('click', loadProject);
+    document.getElementById('saveBtn').addEventListener('click', saveProject);
+    document.getElementById('printBtn').addEventListener('click', showPrintModal);
+
+    // Map import
+    document.getElementById('searchMapBtn').addEventListener('click', searchMap);
+    document.getElementById('uploadImageBtn').addEventListener('click', () => {
+        document.getElementById('imageUpload').click();
+    });
+    document.getElementById('imageUpload').addEventListener('change', handleImageUpload);
+    document.getElementById('blankCanvasBtn').addEventListener('click', createBlankCanvas);
+
+    // Canvas controls
+    document.getElementById('zoomInBtn').addEventListener('click', () => state.map.zoomIn());
+    document.getElementById('zoomOutBtn').addEventListener('click', () => state.map.zoomOut());
+    document.getElementById('resetViewBtn').addEventListener('click', () => {
+        state.map.setView([40.7128, -74.0060], 15);
+    });
+
+    // Brush settings
+    document.getElementById('brushColor').addEventListener('change', (e) => {
+        state.brushColor = e.target.value;
+    });
+    document.getElementById('brushThickness').addEventListener('input', (e) => {
+        state.brushThickness = parseInt(e.target.value);
+        document.getElementById('thicknessValue').textContent = e.target.value;
+    });
+
+    // Measurement unit
+    document.getElementById('measureUnit').addEventListener('change', (e) => {
+        state.measureUnit = e.target.value;
+    });
+
+    // Layer toggles
+    document.querySelectorAll('#layersList input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const layerName = e.target.id.replace('layer-', '');
+            state.layers[layerName] = e.target.checked;
+            redraw();
+        });
+    });
+
+    // Drawing canvas events
+    state.drawCanvas.addEventListener('mousedown', handleMouseDown);
+    state.drawCanvas.addEventListener('mousemove', handleMouseMove);
+    state.drawCanvas.addEventListener('mouseup', handleMouseUp);
+    state.drawCanvas.addEventListener('mouseleave', handleMouseUp);
+
+    // Print modal
+    document.getElementById('closePrintModal').addEventListener('click', closePrintModal);
+    document.getElementById('cancelPrintBtn').addEventListener('click', closePrintModal);
+    document.getElementById('exportPdfBtn').addEventListener('click', exportToPDF);
+    document.getElementById('paperSize').addEventListener('change', updatePrintPreview);
+    document.getElementById('paperOrientation').addEventListener('change', updatePrintPreview);
+}
+
+/**
+ * Sets up tool button event listeners and manages tool selection UI.
+ * Shows/hides tool-specific options panels based on selected tool.
+ * @function setupToolButtons
+ */
+function setupToolButtons() {
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.currentTool = btn.dataset.tool;
+
+            // Show/hide tool options
+            document.getElementById('brushOptions').style.display = 
+                state.currentTool === 'brush' ? 'block' : 'none';
+            document.getElementById('stampOptions').style.display = 
+                state.currentTool === 'stamp' ? 'block' : 'none';
+            document.getElementById('measureOptions').style.display = 
+                state.currentTool === 'measure' ? 'block' : 'none';
+
+            // Setup stamp selection
+            if (state.currentTool === 'stamp') {
+                document.querySelectorAll('.stamp-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        document.querySelectorAll('.stamp-item').forEach(i => i.classList.remove('selected'));
+                        item.classList.add('selected');
+                        state.selectedStamp = item.dataset.stamp;
+                    });
+                });
+            }
+        });
+    });
+}
+
+/**
+ * Handles mouse down events on the drawing canvas.
+ * Initiates drawing, measurement, stamp placement, or annotation based on current tool.
+ * @param {MouseEvent} e - Mouse event object
+ * @function handleMouseDown
+ */
+function handleMouseDown(e) {
+    const rect = state.drawCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    state.isDrawing = true;
+    state.lastX = x;
+    state.lastY = y;
+
+    if (state.currentTool === 'measure') {
+        if (!state.currentMeasurement) {
+            state.currentMeasurement = { start: { x, y }, end: null };
+        } else {
+            state.currentMeasurement.end = { x, y };
+            const distance = calculateDistance(
+                state.currentMeasurement.start,
+                state.currentMeasurement.end
+            );
+            state.measurements.push({
+                ...state.currentMeasurement,
+                distance,
+                unit: state.measureUnit
+            });
+            state.currentMeasurement = null;
+            updateMeasurementsList();
+            redraw();
+        }
+    } else if (state.currentTool === 'stamp' && state.selectedStamp) {
+        drawStamp(x, y, state.selectedStamp);
+    } else if (state.currentTool === 'annotate') {
+        const note = prompt('Enter annotation:');
+        if (note) {
+            state.annotations.push({ x, y, text: note });
+            redraw();
+        }
+    }
+}
+
+/**
+ * Handles mouse move events during drawing.
+ * Draws brush strokes when brush tool is active and user is drawing.
+ * @param {MouseEvent} e - Mouse event object
+ * @function handleMouseMove
+ */
+function handleMouseMove(e) {
+    if (!state.isDrawing) return;
+
+    const rect = state.drawCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (state.currentTool === 'brush') {
+        state.drawContext.strokeStyle = state.brushColor;
+        state.drawContext.lineWidth = state.brushThickness;
+        state.drawContext.lineCap = 'round';
+        state.drawContext.lineJoin = 'round';
+
+        state.drawContext.beginPath();
+        state.drawContext.moveTo(state.lastX, state.lastY);
+        state.drawContext.lineTo(x, y);
+        state.drawContext.stroke();
+
+        state.lastX = x;
+        state.lastY = y;
+    }
+}
+
+/**
+ * Handles mouse up events to stop drawing.
+ * @param {MouseEvent} e - Mouse event object
+ * @function handleMouseUp
+ */
+function handleMouseUp(e) {
+    state.isDrawing = false;
+}
+
+/**
+ * Draws a stamp (emoji icon) at the specified coordinates.
+ * @param {number} x - X coordinate on canvas
+ * @param {number} y - Y coordinate on canvas
+ * @param {string} stampType - Type of stamp ('tree', 'bush', 'hazard', 'bunker', 'water', 'flag')
+ * @function drawStamp
+ */
+function drawStamp(x, y, stampType) {
+    const emojiMap = {
+        tree: '🌲',
+        bush: '🌿',
+        hazard: '⚠️',
+        bunker: '🏖️',
+        water: '💧',
+        flag: '🚩'
+    };
+
+    state.drawContext.font = '32px Arial';
+    state.drawContext.textAlign = 'center';
+    state.drawContext.textBaseline = 'middle';
+    state.drawContext.fillText(emojiMap[stampType] || '📍', x, y);
+}
+
+/**
+ * Calculates the distance between two points.
+ * Converts pixel distance to real-world units (yards or meters).
+ * Note: Uses approximate conversion - proper implementation would use map scale.
+ * @param {Object} point1 - First point with x and y coordinates
+ * @param {number} point1.x - X coordinate
+ * @param {number} point1.y - Y coordinate
+ * @param {Object} point2 - Second point with x and y coordinates
+ * @param {number} point2.x - X coordinate
+ * @param {number} point2.y - Y coordinate
+ * @returns {string} Distance as a formatted string with unit
+ * @function calculateDistance
+ */
+function calculateDistance(point1, point2) {
+    // Simple pixel distance - in real app, would convert to real-world units
+    const dx = point2.x - point1.x;
+    const dy = point2.y - point1.y;
+    const pixels = Math.sqrt(dx * dx + dy * dy);
+    
+    // Rough conversion (this would need proper map scale calculation)
+    const metersPerPixel = 0.5; // Approximate
+    const meters = pixels * metersPerPixel;
+    
+    if (state.measureUnit === 'yards') {
+        return (meters * 1.09361).toFixed(1);
+    }
+    return meters.toFixed(1);
+}
+
+/**
+ * Updates the measurements list display in the sidebar.
+ * Renders all saved measurements with their distances and units.
+ * @function updateMeasurementsList
+ */
+function updateMeasurementsList() {
+    const list = document.getElementById('measurementsList');
+    list.innerHTML = state.measurements.map((m, i) => 
+        `<div class="measurement-item">${i + 1}: ${m.distance} ${m.unit}</div>`
+    ).join('');
+}
+
+/**
+ * Redraws all overlay elements (measurements and annotations) on the overlay canvas.
+ * Respects layer visibility settings from state.layers.
+ * @function redraw
+ */
+function redraw() {
+    // Clear overlay canvas
+    state.overlayContext.clearRect(0, 0, state.overlayCanvas.width, state.overlayCanvas.height);
+
+    // Draw measurements
+    if (state.layers.measurements) {
+        state.measurements.forEach(m => {
+            state.overlayContext.strokeStyle = '#FF0000';
+            state.overlayContext.lineWidth = 2;
+            state.overlayContext.beginPath();
+            state.overlayContext.moveTo(m.start.x, m.start.y);
+            state.overlayContext.lineTo(m.end.x, m.end.y);
+            state.overlayContext.stroke();
+
+            // Draw distance label
+            const midX = (m.start.x + m.end.x) / 2;
+            const midY = (m.start.y + m.end.y) / 2;
+            state.overlayContext.fillStyle = '#FF0000';
+            state.overlayContext.font = '12px Arial';
+            state.overlayContext.fillText(`${m.distance} ${m.unit}`, midX, midY - 5);
+        });
+
+        // Draw current measurement in progress
+        if (state.currentMeasurement && state.currentMeasurement.start) {
+            state.overlayContext.strokeStyle = '#FF0000';
+            state.overlayContext.lineWidth = 2;
+            state.overlayContext.setLineDash([5, 5]);
+            state.overlayContext.beginPath();
+            state.overlayContext.moveTo(state.currentMeasurement.start.x, state.currentMeasurement.start.y);
+            const rect = state.drawCanvas.getBoundingClientRect();
+            state.overlayContext.lineTo(rect.width / 2, rect.height / 2);
+            state.overlayContext.stroke();
+            state.overlayContext.setLineDash([]);
+        }
+    }
+
+    // Draw annotations
+    if (state.layers.annotations) {
+        state.annotations.forEach(ann => {
+            state.overlayContext.fillStyle = '#0000FF';
+            state.overlayContext.font = '14px Arial';
+            state.overlayContext.fillText(ann.text, ann.x, ann.y);
+        });
+    }
+}
+
+/**
+ * Searches for a location and centers the map on it.
+ * Accepts coordinates (lat,lon) or location name (uses Nominatim geocoding).
+ * @function searchMap
+ */
+function searchMap() {
+    const query = document.getElementById('courseName').value;
+    if (!query) return;
+
+    // Try to parse as coordinates
+    const coordMatch = query.match(/(-?\d+\.?\d*),\s*(-?\d+\.?\d*)/);
+    if (coordMatch) {
+        const lat = parseFloat(coordMatch[1]);
+        const lon = parseFloat(coordMatch[2]);
+        state.map.setView([lat, lon], 15);
+        return;
+    }
+
+    // Use Nominatim for geocoding
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                const result = data[0];
+                state.map.setView([parseFloat(result.lat), parseFloat(result.lon)], 15);
+            } else {
+                alert('Location not found');
+            }
+        })
+        .catch(error => {
+            console.error('Error searching location:', error);
+            alert('Error searching location');
+        });
+}
+
+/**
+ * Handles image file upload for custom course imagery.
+ * Replaces map tiles with the uploaded image as an overlay.
+ * @param {Event} e - File input change event
+ * @function handleImageUpload
+ */
+function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            // Remove existing map layers
+            state.map.eachLayer(layer => {
+                if (layer instanceof L.TileLayer) {
+                    state.map.removeLayer(layer);
+                }
+            });
+
+            // Add image overlay
+            const bounds = [[0, 0], [img.height, img.width]];
+            L.imageOverlay(event.target.result, bounds).addTo(state.map);
+            state.map.fitBounds(bounds);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+/**
+ * Creates a blank canvas by removing all map layers and clearing drawings.
+ * Resets measurements and annotations arrays.
+ * @function createBlankCanvas
+ */
+function createBlankCanvas() {
+    // Remove map layers
+    state.map.eachLayer(layer => {
+        state.map.removeLayer(layer);
+    });
+
+    // Clear drawings
+    state.drawContext.clearRect(0, 0, state.drawCanvas.width, state.drawCanvas.height);
+    state.overlayContext.clearRect(0, 0, state.overlayCanvas.width, state.overlayCanvas.height);
+    state.measurements = [];
+    state.annotations = [];
+    updateMeasurementsList();
+}
+
+/**
+ * Creates a new project, clearing all current work.
+ * Prompts user for confirmation before proceeding.
+ * @function newProject
+ */
+function newProject() {
+    if (confirm('Create a new project? Unsaved changes will be lost.')) {
+        createBlankCanvas();
+        state.map.setView([40.7128, -74.0060], 15);
+    }
+}
+
+/**
+ * Loads a Birdie Book project from a .birdie file.
+ * Restores map view, measurements, annotations, and drawing settings.
+ * @returns {Promise<void>}
+ * @async
+ * @function loadProject
+ */
+async function loadProject() {
+    const result = await ipcRenderer.invoke('load-file');
+    if (result.success) {
+        try {
+            const data = result.data;
+            // Restore state
+            if (data.measurements) state.measurements = data.measurements;
+            if (data.annotations) state.annotations = data.annotations;
+            if (data.brushColor) state.brushColor = data.brushColor;
+            if (data.brushThickness) state.brushThickness = data.brushThickness;
+            
+            // Restore map view if coordinates provided
+            if (data.mapCenter && data.mapZoom) {
+                state.map.setView(data.mapCenter, data.mapZoom);
+            }
+
+            // Redraw
+            redraw();
+            updateMeasurementsList();
+            alert('Project loaded successfully');
+        } catch (error) {
+            alert('Error loading project: ' + error.message);
+        }
+    }
+}
+
+/**
+ * Saves the current Birdie Book project to a .birdie file.
+ * Includes map state, measurements, annotations, brush settings, and canvas data.
+ * @returns {Promise<void>}
+ * @async
+ * @function saveProject
+ */
+async function saveProject() {
+    const data = {
+        version: '1.0',
+        mapCenter: state.map.getCenter(),
+        mapZoom: state.map.getZoom(),
+        measurements: state.measurements,
+        annotations: state.annotations,
+        brushColor: state.brushColor,
+        brushThickness: state.brushThickness,
+        canvasData: state.drawCanvas.toDataURL()
+    };
+
+    const result = await ipcRenderer.invoke('save-file', data);
+    if (result.success) {
+        alert('Project saved successfully');
+    } else if (!result.canceled) {
+        alert('Error saving project: ' + result.error);
+    }
+}
+
+/**
+ * Shows the print preview modal dialog.
+ * @function showPrintModal
+ */
+function showPrintModal() {
+    document.getElementById('printModal').classList.add('active');
+    updatePrintPreview();
+}
+
+/**
+ * Closes the print preview modal dialog.
+ * @function closePrintModal
+ */
+function closePrintModal() {
+    document.getElementById('printModal').classList.remove('active');
+}
+
+/**
+ * Updates the print preview display with current paper size and orientation settings.
+ * @function updatePrintPreview
+ */
+function updatePrintPreview() {
+    const preview = document.getElementById('printPreview');
+    const paperSize = document.getElementById('paperSize').value;
+    const orientation = document.getElementById('paperOrientation').value;
+    
+    // Create preview content
+    preview.innerHTML = `
+        <div style="border: 2px dashed #ccc; padding: 20px; text-align: center;">
+            <h3>Print Preview - ${paperSize} (${orientation})</h3>
+            <p>This will export the current canvas with all visible layers.</p>
+            <p>Paper size: ${paperSize}</p>
+            <p>Orientation: ${orientation}</p>
+        </div>
+    `;
+}
+
+/**
+ * Exports the current canvas to a PDF file.
+ * Uses html2canvas to capture the map container and jsPDF to generate the PDF.
+ * Supports A4, A5, and A6 paper sizes with portrait or landscape orientation.
+ * @returns {Promise<void>}
+ * @async
+ * @function exportToPDF
+ */
+async function exportToPDF() {
+    const paperSize = document.getElementById('paperSize').value;
+    const orientation = document.getElementById('paperOrientation').value;
+
+    // Get paper dimensions in mm
+    const sizes = {
+        A4: { width: 210, height: 297 },
+        A5: { width: 148, height: 210 },
+        A6: { width: 105, height: 148 }
+    };
+
+    let width = sizes[paperSize].width;
+    let height = sizes[paperSize].height;
+
+    if (orientation === 'landscape') {
+        [width, height] = [height, width];
+    }
+
+    // Use html2canvas to capture the canvas area
+    const container = document.getElementById('mapContainer');
+    
+    try {
+        const canvas = await html2canvas(container, {
+            backgroundColor: '#ffffff',
+            scale: 2
+        });
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'mm',
+            format: paperSize.toLowerCase()
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = width;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Center the image
+        const xOffset = 0;
+        const yOffset = (height - imgHeight) / 2;
+
+        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
+        pdf.save('birdie-book.pdf');
+
+        alert('PDF exported successfully!');
+        closePrintModal();
+    } catch (error) {
+        console.error('Error exporting PDF:', error);
+        alert('Error exporting PDF: ' + error.message);
+    }
+}
