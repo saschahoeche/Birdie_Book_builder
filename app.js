@@ -98,7 +98,8 @@ function initializeCanvas() {
 }
 
 /**
- * Initializes the Leaflet map with OpenStreetMap tiles.
+ * Initializes the Leaflet map with tile layer.
+ * Uses CartoDB Positron tiles (compatible with Electron, no referer required).
  * Sets up default view, zoom controls, and map event handlers.
  * @function initializeMap
  */
@@ -110,9 +111,11 @@ function initializeMap() {
         zoomControl: false
     });
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
+    // Add tile layer - Using CartoDB Positron (works with Electron, no referer required)
+    // Alternative: Use OpenStreetMap with proper headers, but CartoDB is more reliable for desktop apps
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
         maxZoom: 19
     }).addTo(state.map);
 
