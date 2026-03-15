@@ -104,6 +104,9 @@ function initializeCanvas() {
     state.drawContext = state.drawCanvas.getContext('2d');
     state.overlayContext = state.overlayCanvas.getContext('2d');
 
+    // Initialize canvas pointer-events (starts as none for pan tool)
+    state.drawCanvas.style.pointerEvents = 'none';
+
     // Set canvas size
     function resizeCanvas() {
         const container = document.getElementById('mapContainer');
