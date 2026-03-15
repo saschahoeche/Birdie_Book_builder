@@ -267,10 +267,12 @@ function setupToolButtons() {
 
             // Update canvas pointer-events based on tool
             // Only capture events when a drawing tool is active (not pan)
-            if (state.currentTool === 'pan') {
-                state.drawCanvas.style.pointerEvents = 'none';
-            } else {
-                state.drawCanvas.style.pointerEvents = 'auto';
+            if (state.drawCanvas) {
+                if (state.currentTool === 'pan') {
+                    state.drawCanvas.style.pointerEvents = 'none';
+                } else {
+                    state.drawCanvas.style.pointerEvents = 'auto';
+                }
             }
 
             // Show/hide tool options
