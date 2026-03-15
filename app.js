@@ -159,9 +159,25 @@ function initializeMap() {
         updateCanvasSize();
     });
 
-    // Prevent map from capturing events when tools are active
-    // We'll handle this in tool selection, but also add a general handler
+    // Prevent map from capturing events - we'll control this via tool selection
+    // Initially set to auto for pan tool
     state.map.getContainer().style.pointerEvents = 'auto';
+    
+    // Add click handler to map to stop propagation when tools are active
+    state.map.on('click', (e) => {
+        if (state.currentTool !== 'pan') {
+            e.originalEvent.stopPropagation();
+            e.originalEvent.preventDefault();
+        }
+    });
+    
+    // Also prevent mousedown on map when tools are active
+    state.map.getContainer().addEventListener('mousedown', (e) => {
+        if (state.currentTool !== 'pan') {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    }, true);
 }
 
 /**
@@ -391,8 +407,11 @@ function setupToolButtons() {
  * @function handleMouseDown
  */
 function handleMouseDown(e) {
+    console.log('handleMouseDown called, tool:', state.currentTool, 'target:', e.target);
+    
     // Only process if not pan tool
     if (state.currentTool === 'pan') {
+        console.log('Pan tool active, returning');
         return;
     }
     
@@ -410,7 +429,7 @@ function handleMouseDown(e) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    console.log('Mouse down on canvas:', state.currentTool, x, y, 'Event type:', e.type);
+    console.log('Mouse down on canvas - PROCESSING:', state.currentTool, x, y);
 
     if (state.currentTool === 'fill') {
         // Start or continue polygon drawing
