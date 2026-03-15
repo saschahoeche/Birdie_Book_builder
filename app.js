@@ -283,16 +283,36 @@ function setupToolButtons() {
                     // Enable map dragging for pan tool
                     if (state.map) {
                         state.map.dragging.enable();
+                        state.map.scrollWheelZoom.enable();
+                        state.map.doubleClickZoom.enable();
+                        state.map.boxZoom.enable();
+                        state.map.keyboard.enable();
+                        state.map.touchZoom.enable();
+                        // Re-enable map container pointer events
+                        const mapContainer = state.map.getContainer();
+                        if (mapContainer) {
+                            mapContainer.style.pointerEvents = 'auto';
+                        }
                     }
                 } else {
                     state.drawCanvas.style.pointerEvents = 'auto';
                     state.overlayCanvas.style.pointerEvents = 'none'; // Overlay should never capture events
                     state.drawCanvas.style.cursor = 'crosshair';
-                    // Disable map dragging when using tools
+                    // Disable map dragging and interactions when using tools
                     if (state.map) {
                         state.map.dragging.disable();
+                        state.map.scrollWheelZoom.disable();
+                        state.map.doubleClickZoom.disable();
+                        state.map.boxZoom.disable();
+                        state.map.keyboard.disable();
+                        state.map.touchZoom.disable();
+                        // Make map container not capture pointer events
+                        const mapContainer = state.map.getContainer();
+                        if (mapContainer) {
+                            mapContainer.style.pointerEvents = 'none';
+                        }
                     }
-                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto, map dragging disabled');
+                    console.log('Tool selected:', state.currentTool, 'pointer-events set to auto, all map interactions disabled');
                 }
             } else {
                 console.error('Canvas not available when selecting tool', {

@@ -288,10 +288,17 @@ body {
 .draw-canvas {
     pointer-events: none; /* Default: let map handle events, JS will enable when tool is active */
     z-index: 1000;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .overlay-canvas {
     z-index: 1001;
+    pointer-events: none; /* Overlay should never capture events */
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .canvas-controls {
