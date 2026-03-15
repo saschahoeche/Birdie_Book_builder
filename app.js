@@ -403,10 +403,13 @@ function setupToolButtons() {
     
     toolButtons.forEach(btn => {
         console.log('Setting up button:', btn.dataset.tool, btn);
+        
+        // Add click handler with capture phase
         btn.addEventListener('click', (e) => {
             console.log('Tool button clicked:', btn.dataset.tool, e);
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
