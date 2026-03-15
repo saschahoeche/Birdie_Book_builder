@@ -317,14 +317,23 @@ function setupEventListeners() {
         state.map.setView([40.7128, -74.0060], 15);
     });
 
-    // Brush settings
-    document.getElementById('brushColor').addEventListener('change', (e) => {
-        state.brushColor = e.target.value;
-    });
-    document.getElementById('brushThickness').addEventListener('input', (e) => {
-        state.brushThickness = parseInt(e.target.value);
-        document.getElementById('thicknessValue').textContent = e.target.value;
-    });
+    // Brush settings (only if elements exist - they may be in fillOptions)
+    const brushColorEl = document.getElementById('brushColor');
+    if (brushColorEl) {
+        brushColorEl.addEventListener('change', (e) => {
+            state.brushColor = e.target.value;
+        });
+    }
+    const brushThicknessEl = document.getElementById('brushThickness');
+    if (brushThicknessEl) {
+        brushThicknessEl.addEventListener('input', (e) => {
+            state.brushThickness = parseInt(e.target.value);
+            const thicknessValueEl = document.getElementById('thicknessValue');
+            if (thicknessValueEl) {
+                thicknessValueEl.textContent = e.target.value;
+            }
+        });
+    }
 
     // Ground type selection
     document.querySelectorAll('.ground-type-item').forEach(item => {
