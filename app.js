@@ -271,17 +271,22 @@ function setupToolButtons() {
 
             // Update canvas pointer-events based on tool
             // Only capture events when a drawing tool is active (not pan)
-            if (state.drawCanvas) {
+            if (state.drawCanvas && state.overlayCanvas) {
                 if (state.currentTool === 'pan') {
                     state.drawCanvas.style.pointerEvents = 'none';
+                    state.overlayCanvas.style.pointerEvents = 'none';
                     state.drawCanvas.style.cursor = 'grab';
                 } else {
                     state.drawCanvas.style.pointerEvents = 'auto';
+                    state.overlayCanvas.style.pointerEvents = 'none'; // Overlay should never capture events
                     state.drawCanvas.style.cursor = 'crosshair';
                     console.log('Tool selected:', state.currentTool, 'pointer-events set to auto');
                 }
             } else {
-                console.error('drawCanvas not available when selecting tool');
+                console.error('Canvas not available when selecting tool', {
+                    drawCanvas: !!state.drawCanvas,
+                    overlayCanvas: !!state.overlayCanvas
+                });
             }
 
             // Show/hide tool options
@@ -338,9 +343,25 @@ function setupToolButtons() {
  * @function handleMouseDown
  */
 function handleMouseDown(e) {
+    // Only process if not pan tool
+    if (state.currentTool === 'pan') {
+        return;
+    }
+    
+    // Prevent map interaction
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!state.drawCanvas) {
+        console.error('drawCanvas not available in handleMouseDown');
+        return;
+    }
+    
     const rect = state.drawCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    
+    console.log('Mouse down on canvas:', state.currentTool, x, y);
 
     if (state.currentTool === 'fill') {
         // Start or continue polygon drawing
