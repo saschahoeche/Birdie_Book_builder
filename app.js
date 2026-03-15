@@ -113,8 +113,8 @@ function initializeCanvas() {
 }
 
 /**
- * Initializes the Leaflet map with tile layer.
- * Uses CartoDB Positron tiles (compatible with Electron, no referer required).
+ * Initializes the Leaflet map with satellite imagery tile layer.
+ * Uses Esri World Imagery for real satellite photos (compatible with Electron, no referer required).
  * Sets up default view, zoom controls, and map event handlers.
  * @function initializeMap
  */
@@ -126,11 +126,10 @@ function initializeMap() {
         zoomControl: false
     });
 
-    // Add tile layer - Using CartoDB Positron (works with Electron, no referer required)
-    // Alternative: Use OpenStreetMap with proper headers, but CartoDB is more reliable for desktop apps
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
+    // Add satellite imagery tile layer - Using Esri World Imagery
+    // Provides real satellite/aerial imagery, works with Electron, no API key required
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
         maxZoom: 19
     }).addTo(state.map);
 
