@@ -247,7 +247,7 @@ body {
 }
 
 .draw-canvas {
-    pointer-events: auto;
+    pointer-events: none; /* Default: let map handle events, JS will enable when tool is active */
     z-index: 1000;
 }
 

@@ -37,7 +37,7 @@ const { ipcRenderer } = require('electron');
  * @type {AppState}
  */
 let state = {
-    currentTool: 'brush',
+    currentTool: 'pan', // Default to pan tool for map navigation
     selectedStamp: null,
     map: null,
     drawCanvas: null,
@@ -58,6 +58,13 @@ let state = {
         drawings: true,
         measurements: true,
         annotations: true
+    },
+    // Undo/Redo history
+    history: {
+        drawings: [], // Array of canvas states (image data)
+        measurements: [],
+        annotations: [],
+        currentIndex: -1
     }
 };
 
@@ -91,10 +98,18 @@ function initializeCanvas() {
         state.drawCanvas.height = container.offsetHeight;
         state.overlayCanvas.width = container.offsetWidth;
         state.overlayCanvas.height = container.offsetHeight;
+        // Save initial state to history
+        saveStateToHistory();
     }
 
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
+    
+    // Initialize history with empty state (after a short delay to ensure canvas is ready)
+    setTimeout(() => {
+        saveStateToHistory();
+        updateUndoRedoButtons();
+    }, 100);
 }
 
 /**
@@ -220,6 +235,14 @@ function setupToolButtons() {
             btn.classList.add('active');
             state.currentTool = btn.dataset.tool;
 
+            // Update canvas pointer-events based on tool
+            // Only capture events when a drawing tool is active (not pan)
+            if (state.currentTool === 'pan') {
+                state.drawCanvas.style.pointerEvents = 'none';
+            } else {
+                state.drawCanvas.style.pointerEvents = 'auto';
+            }
+
             // Show/hide tool options
             document.getElementById('brushOptions').style.display = 
                 state.currentTool === 'brush' ? 'block' : 'none';
@@ -239,6 +262,21 @@ function setupToolButtons() {
                 });
             }
         });
+    });
+
+    // Undo/Redo buttons
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('redoBtn').addEventListener('click', redo);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            redo();
+        }
     });
 }
 
@@ -274,15 +312,20 @@ function handleMouseDown(e) {
             state.currentMeasurement = null;
             updateMeasurementsList();
             redraw();
+            saveStateToHistory(); // Save after measurement complete
         }
     } else if (state.currentTool === 'stamp' && state.selectedStamp) {
+        saveStateToHistory(); // Save before stamp
         drawStamp(x, y, state.selectedStamp);
     } else if (state.currentTool === 'annotate') {
         const note = prompt('Enter annotation:');
         if (note) {
+            saveStateToHistory(); // Save before annotation
             state.annotations.push({ x, y, text: note });
             redraw();
         }
+    } else if (state.currentTool === 'brush') {
+        saveStateToHistory(); // Save before starting to draw
     }
 }
 
@@ -321,6 +364,10 @@ function handleMouseMove(e) {
  * @function handleMouseUp
  */
 function handleMouseUp(e) {
+    if (state.isDrawing && state.currentTool === 'brush') {
+        // Save state after drawing stroke completes
+        saveStateToHistory();
+    }
     state.isDrawing = false;
 }
 
@@ -631,6 +678,97 @@ function updatePrintPreview() {
             <p>Orientation: ${orientation}</p>
         </div>
     `;
+}
+
+/**
+ * Saves current state to history for undo/redo functionality.
+ * @function saveStateToHistory
+ */
+function saveStateToHistory() {
+    // Remove any states after current index (when undoing then doing new action)
+    if (state.history.currentIndex < state.history.drawings.length - 1) {
+        state.history.drawings = state.history.drawings.slice(0, state.history.currentIndex + 1);
+        state.history.measurements = state.history.measurements.slice(0, state.history.currentIndex + 1);
+        state.history.annotations = state.history.annotations.slice(0, state.history.currentIndex + 1);
+    }
+
+    // Save current state
+    state.history.drawings.push(state.drawCanvas.toDataURL());
+    state.history.measurements.push(JSON.parse(JSON.stringify(state.measurements)));
+    state.history.annotations.push(JSON.parse(JSON.stringify(state.annotations)));
+    
+    // Limit history to 50 states to prevent memory issues
+    const maxHistory = 50;
+    if (state.history.drawings.length > maxHistory) {
+        state.history.drawings.shift();
+        state.history.measurements.shift();
+        state.history.annotations.shift();
+    } else {
+        state.history.currentIndex++;
+    }
+
+    updateUndoRedoButtons();
+}
+
+/**
+ * Restores state from history at given index.
+ * @param {number} index - History index to restore
+ * @function restoreStateFromHistory
+ */
+function restoreStateFromHistory(index) {
+    if (index < 0 || index >= state.history.drawings.length) return;
+
+    // Restore canvas
+    const img = new Image();
+    img.onload = () => {
+        state.drawContext.clearRect(0, 0, state.drawCanvas.width, state.drawCanvas.height);
+        state.drawContext.drawImage(img, 0, 0);
+    };
+    img.src = state.history.drawings[index];
+
+    // Restore measurements and annotations
+    state.measurements = JSON.parse(JSON.stringify(state.history.measurements[index]));
+    state.annotations = JSON.parse(JSON.stringify(state.history.annotations[index]));
+
+    state.history.currentIndex = index;
+    updateMeasurementsList();
+    redraw();
+    updateUndoRedoButtons();
+}
+
+/**
+ * Undoes the last action.
+ * @function undo
+ */
+function undo() {
+    if (state.history.currentIndex > 0) {
+        restoreStateFromHistory(state.history.currentIndex - 1);
+    }
+}
+
+/**
+ * Redoes the last undone action.
+ * @function redo
+ */
+function redo() {
+    if (state.history.currentIndex < state.history.drawings.length - 1) {
+        restoreStateFromHistory(state.history.currentIndex + 1);
+    }
+}
+
+/**
+ * Updates undo/redo button states based on history availability.
+ * @function updateUndoRedoButtons
+ */
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    
+    undoBtn.disabled = state.history.currentIndex <= 0;
+    redoBtn.disabled = state.history.currentIndex >= state.history.drawings.length - 1;
+    
+    undoBtn.style.opacity = undoBtn.disabled ? '0.5' : '1';
+    redoBtn.style.opacity = redoBtn.disabled ? '0.5' : '1';
 }
 
 /**

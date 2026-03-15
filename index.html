@@ -37,9 +37,12 @@
                 </div>
 
                 <div class="sidebar-section">
-                    <h3>Drawing Tools</h3>
+                    <h3>Tools</h3>
                     <div class="tool-group">
-                        <button id="brushTool" class="tool-btn active" data-tool="brush">
+                        <button id="panTool" class="tool-btn active" data-tool="pan">
+                            <span class="icon">✋</span> Pan
+                        </button>
+                        <button id="brushTool" class="tool-btn" data-tool="brush">
                             <span class="icon">🖌️</span> Brush
                         </button>
                         <button id="stampTool" class="tool-btn" data-tool="stamp">
@@ -50,6 +53,18 @@
                         </button>
                         <button id="annotateTool" class="tool-btn" data-tool="annotate">
                             <span class="icon">📝</span> Annotate
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>History</h3>
+                    <div class="tool-group">
+                        <button id="undoBtn" class="btn btn-small btn-full" title="Undo (Ctrl+Z)">
+                            ↶ Undo
+                        </button>
+                        <button id="redoBtn" class="btn btn-small btn-full" title="Redo (Ctrl+Y)">
+                            ↷ Redo
                         </button>
                     </div>
                 </div>
