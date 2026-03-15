@@ -8,6 +8,14 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Enable DevTools in development
+if (process.env.NODE_ENV !== 'production') {
+    // Open DevTools automatically in development
+    app.on('ready', () => {
+        // DevTools will be opened by default
+    });
+}
+
 /** @type {BrowserWindow|null} Main application window */
 let mainWindow;
 
