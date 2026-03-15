@@ -244,11 +244,19 @@ function setupEventListeners() {
 
     // Drawing canvas events - only attach if canvas exists
     if (state.drawCanvas) {
-        state.drawCanvas.addEventListener('mousedown', handleMouseDown);
-        state.drawCanvas.addEventListener('mousemove', handleMouseMove);
-        state.drawCanvas.addEventListener('mouseup', handleMouseUp);
-        state.drawCanvas.addEventListener('mouseleave', handleMouseUp);
-        state.drawCanvas.addEventListener('dblclick', handleDoubleClick);
+        // Use capture phase to ensure we get events before map
+        state.drawCanvas.addEventListener('mousedown', handleMouseDown, true);
+        state.drawCanvas.addEventListener('mousemove', handleMouseMove, true);
+        state.drawCanvas.addEventListener('mouseup', handleMouseUp, true);
+        state.drawCanvas.addEventListener('mouseleave', handleMouseUp, true);
+        state.drawCanvas.addEventListener('dblclick', handleDoubleClick, true);
+        
+        // Also add a test click handler to verify events are working
+        state.drawCanvas.addEventListener('click', (e) => {
+            if (state.currentTool !== 'pan') {
+                console.log('Canvas click received!', state.currentTool);
+            }
+        }, true);
     } else {
         console.error('drawCanvas not found when setting up event listeners');
     }
